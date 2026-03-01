@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Next Auth Framework (Reusable)
 
-## Getting Started
+This project is a reusable Next.js auth framework with:
+- NextAuth v5 (`google` + `credentials` providers)
+- Role-based authorization (`USER` / `ADMIN`)
+- Route guarding in `proxy.ts`
+- Registration + login with server-side validation and rate limiting
+- Security headers + CSP defaults
 
-First, run the development server:
+## Quick Start
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Central Auth Configuration
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Use these files as your single auth config surface when reusing in another project:
+- `src/lib/auth/framework-config.ts` (server-only auth/security knobs)
+- `src/lib/auth/routes.ts` (route paths shared by server + client)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### `framework-config.ts` (server-side)
 
-## Learn More
+Environment variables:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+# Provider toggles
+AUTH_ENABLE_GOOGLE=true
+AUTH_ENABLE_CREDENTIALS=true
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# Admin allowlist (comma-separated)
+AUTH_ADMIN_EMAILS=admin@example.com,security@example.com
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# Password hashing
+AUTH_BCRYPT_COST=12
+AUTH_TRUST_HOST=true
 
-## Deploy on Vercel
+# Rate limiting
+AUTH_RATE_LIMIT_MAX_ATTEMPTS=5
+AUTH_RATE_LIMIT_WINDOW_MS=900000
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Trust x-forwarded-for / x-real-ip from your platform proxy
+AUTH_TRUST_PROXY_HEADERS=true
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### `routes.ts` (client + server)
+
+Public route variables (optional):
+
+```bash
+NEXT_PUBLIC_AUTH_ROUTE_LOGIN=/login
+NEXT_PUBLIC_AUTH_ROUTE_REGISTER=/register
+NEXT_PUBLIC_AUTH_ROUTE_USER_HOME=/user
+NEXT_PUBLIC_AUTH_ROUTE_ADMIN_HOME=/admin
+```
+
+## Security Notes
+
+- CSP now blocks `unsafe-inline` and `unsafe-eval` scripts in production.
+- In development, CSP relaxes scripts for local tooling compatibility.
+- Seed script no longer uses weak default passwords.
+
+## Seeding Users
+
+```bash
+SEED_ADMIN_PASSWORD='your-strong-admin-password' \
+SEED_USER_PASSWORD='your-strong-user-password' \
+npm run db:seed
+```
+
+If seed passwords are not provided, random passwords are generated and printed once.

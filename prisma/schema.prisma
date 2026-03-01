@@ -1,0 +1,105 @@
+// Auth Framework Schema — copy this to any project
+// Supports NextAuth v5 + Google OAuth + Credentials + Role-based access
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Role Enum ──────────────────────────────────────────────────────────────
+
+enum Role {
+  USER   // patient / client / regular user
+  STAFF  // doctor / therapist / warehouse operator
+  ADMIN  // clinic owner / manager / super admin
+}
+
+// ─── NextAuth Required Models ────────────────────────────────────────────────
+
+model User {
+  id             String    @id @default(cuid())
+  name           String?
+  email          String    @unique
+  emailVerified  DateTime?
+  image          String?
+  password       String?   // null for OAuth users
+  role           Role      @default(USER)
+  // Increment to invalidate all active sessions (sign out all devices).
+  // Other JWTs stay valid until expiry — pair with a short AUTH_SESSION_MAX_AGE_SECONDS.
+  sessionVersion Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Password Reset ──────────────────────────────────────────────────────────
+// Raw token sent in email URL; stored here as SHA-256 hash (never the raw value).
+// Token expires after AUTH_PASSWORD_RESET_EXPIRY_MINUTES (default 15 min).
+// `used` prevents replay if the user clicks the link twice.
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique // SHA-256 hash of the raw URL token
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+// ─── Email Verification ──────────────────────────────────────────────────────
+// Created on registration when AUTH_REQUIRE_EMAIL_VERIFICATION=true.
+// Deleted after successful verification.
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique // SHA-256 hash of the raw URL token
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
